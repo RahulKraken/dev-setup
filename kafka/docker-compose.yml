@@ -1,77 +1,45 @@
-version: "3.9"
-
-# feel free to remove kafdrop
-# TODO: setup with schema-registry
+version: '3'
 services:
-  kafdrop:
-    depends_on:
-      kafka:
-        condition: service_started
-    environment:
-      JVM_OPTS: -Xms16M -Xmx48M -Xss180K -XX:-TieredCompilation -XX:+UseStringDeduplication
-        -noverify
-      KAFKA_BROKERCONNECT: "kafka:29092"
-    image: obsidiandynamics/kafdrop
-    ports:
-    - mode: ingress
-      target: 9000
-      published: 9000
-      protocol: tcp
-    restart: "no"
-
-  kafka:
-    depends_on:
-      zookeeper:
-        condition: service_started
-    deploy:
-      restart_policy:
-        condition: on-failure
-        delay: 10s
-        max_attempts: 3
-        window: 5m0s
-    environment:
-      ALLOW_PLAINTEXT_LISTENER: "true"
-      KAFKA_ADVERTISED_LISTENERS: "EXTERNAL://localhost:9092,INTERNAL://:29092"
-      KAFKA_LISTENERS: "EXTERNAL://localhost:9092,INTERNAL://:29092"
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "EXTERNAL:PLAINTEXT,INTERNAL:PLAINTEXT"
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_INTER_BROKER_LISTENER_NAME: "INTERNAL"
-    image: confluentinc/cp-kafka
-    ports:
-    - mode: ingress
-      target: 9092
-      published: 9092
-      protocol: tcp
-    volumes:
-    - type: volume
-      source: kafka_data
-      target: /kafka
-      volume: {}
-
-  zookeeper:
-    deploy:
-      restart_policy:
-        condition: on-failure
-        delay: 10s
-        max_attempts: 3
-        window: 5m0s
-    environment:
-      ALLOW_ANONYMOUS_LOGIN: "true"
-      ZOOKEEPER_CLIENT_PORT: 2181
-    image: confluentinc/cp-zookeeper
-    ports:
-    - mode: ingress
-      target: 2181
-      published: 2181
-      protocol: tcp
-    volumes:
-    - type: volume
-      source: zookeeper_data
-      target: /zookeeper
-      volume: {}
-
-volumes:
-  kafka_data:
-    driver: local
-  zookeeper_data:
-    driver: local
+ zookeeper:
+   image: confluentinc/cp-zookeeper:5.3.1
+   hostname: zookeeper
+   container_name: zookeeper
+   ports:
+     - "2181:2181"
+   environment:
+     ZOOKEEPER_CLIENT_PORT: 2181
+     ZOOKEEPER_TICK_TIME: 2000
+ 
+ broker:
+   image: confluentinc/cp-kafka:5.3.1
+   hostname: broker
+   container_name: broker
+   depends_on:
+     - zookeeper
+   ports:
+     - "9092:9092"
+     - "9093:9093"
+   environment:
+     KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:19092,PLAINTEXT_HOST://${DOCKER_HOST_IP:-127.0.0.1}:9092
+     KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+     KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+     KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+     KAFKA_BROKER_ID: 1
+     KAFKA_LOG4J_LOGGERS: "kafka.controller=INFO,kafka.producer.async.DefaultEventHandler=INFO,state.change.logger=INFO"
+     KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+     KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+     KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+ 
+ schema-registry:
+   image: confluentinc/cp-schema-registry:5.3.1
+   hostname: schema-registry
+   container_name: schema-registry
+   depends_on:
+     - zookeeper
+     - broker
+   ports:
+     - "8881:8081"
+   environment:
+     SCHEMA_REGISTRY_HOST_NAME: schema-registry
+     SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: 'zookeeper:2181'
+ 
