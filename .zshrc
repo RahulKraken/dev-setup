@@ -22,7 +22,7 @@ source $ZSH/oh-my-zsh.sh
 # User configuration
 
 # source ~/.bash_profile is exists
-if [ -f "~/.bash_profile" ]; then
+if [ -f ~/.bash_profile ]; then
   source ~/.bash_profile
 fi
 
