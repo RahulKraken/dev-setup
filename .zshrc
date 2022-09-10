@@ -27,5 +27,6 @@ if [ -f ~/.bash_profile ]; then
 fi
 
 # alias
+source ~/.alias
 alias dockerc="docker-compose"
 
